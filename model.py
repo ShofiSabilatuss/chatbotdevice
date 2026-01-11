@@ -5,8 +5,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from deep_translator import GoogleTranslator
 
 DATA_PATH = "dataset/apple_support.csv"
-QUESTION_COL = "question"
-ANSWER_COL = "answer"
 
 # Load dataset (aman walau CSV kotor)
 data = pd.read_csv(
@@ -14,6 +12,13 @@ data = pd.read_csv(
     engine="python",
     on_bad_lines="skip"
 )
+
+data.columns = [c.strip().lower() for c in data.columns]
+
+QUESTION_COL = "question"
+ANSWER_COL = "answer"
+if QUESTION_COL not in data.columns or ANSWER_COL not in data.columns:
+    raise ValueError(f"Kolom CSV harus ada: {data.columns}")
 
 # rapikan nama kolom
 data.columns = [c.strip().lower() for c in data.columns]
@@ -47,4 +52,5 @@ def chatbot_response(user_input):
 
     # kembalikan ke bahasa user
     return GoogleTranslator(source="en", target="auto").translate(answer_en)
+
 
