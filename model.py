@@ -15,6 +15,9 @@ data = pd.read_csv(
     on_bad_lines="skip"
 )
 
+# rapikan nama kolom
+data.columns = [c.strip().lower() for c in data.columns]
+
 def clean_text(text):
     text = text.lower()
     text = re.sub(r"[^a-zA-Z0-9\s]", "", text)
@@ -44,3 +47,4 @@ def chatbot_response(user_input):
 
     # kembalikan ke bahasa user
     return GoogleTranslator(source="en", target="auto").translate(answer_en)
+
