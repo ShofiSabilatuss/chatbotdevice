@@ -1,90 +1,66 @@
 import pandas as pd
-import string
 import os
+import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from deep_translator import GoogleTranslator
 
-# =====================
-# LOAD DATASET
-# =====================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# ===== PATH =====
+BASE_DIR = os.path.dirname(__file__)
 DATA_PATH = os.path.join(BASE_DIR, "dataset", "apple_support.csv")
 
+# ===== LOAD CSV (ANTI ERROR) =====
 data = pd.read_csv(
     DATA_PATH,
-    encoding="utf-8",
+    engine="python",
     on_bad_lines="skip"
 )
 
+# ===== NORMALISASI NAMA KOLOM =====
+data.columns = data.columns.str.strip().str.lower()
 
+# GANTI sesuai CSV kamu
 QUESTION_COL = "question"
 ANSWER_COL = "answer"
 
-# =====================
-# TEXT CLEANING
-# =====================
+if QUESTION_COL not in data.columns or ANSWER_COL not in data.columns:
+    raise ValueError(
+        f"CSV harus punya kolom '{QUESTION_COL}' dan '{ANSWER_COL}'. "
+        f"Sekarang kolomnya: {list(data.columns)}"
+    )
+
+# ===== CLEAN TEXT =====
 def clean_text(text):
-    text = text.lower()
-    text = text.translate(str.maketrans("", "", string.punctuation))
+    text = str(text).lower()
+    text = re.sub(r"[^a-zA-Z0-9\s]", "", text)
     return text
 
 data["clean_question"] = data[QUESTION_COL].apply(clean_text)
 
-# =====================
-# TF-IDF
-# =====================
+# ===== TF-IDF =====
 vectorizer = TfidfVectorizer()
 X = vectorizer.fit_transform(data["clean_question"])
 
-# =====================
-# LANGUAGE CHECK (TANPA DETECT)
-# =====================
-def is_indonesian(text):
-    keywords = ["bagaimana", "cara", "apa", "kenapa", "mengapa", "bisa", "tidak"]
-    return any(word in text.lower() for word in keywords)
+# ===== SAPAAN =====
+GREETINGS = {
+    "halo": "Halo! Saya siap membantu dukungan perangkat Apple 😊",
+    "hai": "Hai! Ada yang bisa saya bantu tentang perangkat Apple?",
+    "hello": "Hello! How can I help you with Apple devices?"
+}
 
-# =====================
-# CHATBOT RESPONSE
-# =====================
+# ===== CHATBOT =====
 def chatbot_response(user_input):
-    user_lang = "id" if is_indonesian(user_input) else "en"
+    user_input = user_input.strip()
 
-    # Greeting handling
-    greetings_id = ["halo", "hai", "hi"]
-    greetings_en = ["hello", "hi"]
+    if user_input.lower() in GREETINGS:
+        return GREETINGS[user_input.lower()]
 
-    if user_input.lower().strip() in greetings_id:
-        return "Halo! Saya siap membantu seputar dukungan perangkat Apple 😊"
+    clean_input = clean_text(user_input)
+    input_vec = vectorizer.transform([clean_input])
+    similarity = cosine_similarity(input_vec, X)
 
-    if user_input.lower().strip() in greetings_en:
-        return "Hello! I can help you with Apple device support 😊"
-
-    # Translate input to English if needed
-    processed_input = user_input
-    if user_lang == "id":
-        processed_input = GoogleTranslator(source="id", target="en").translate(user_input)
-
-    processed_input = clean_text(processed_input)
-
-    user_vector = vectorizer.transform([processed_input])
-    similarity = cosine_similarity(user_vector, X)
-    best_score = similarity.max()
     best_idx = similarity.argmax()
 
-    THRESHOLD = 0.3
+    if similarity[0][best_idx] < 0.2:
+        return "Maaf, pertanyaan tersebut belum tersedia dalam data saya."
 
-    if best_score < THRESHOLD:
-        return (
-            "Maaf, pertanyaan tersebut tidak tersedia dalam data yang saya miliki."
-            if user_lang == "id"
-            else "Sorry, this question is not available in my dataset."
-        )
-
-    answer_en = data.iloc[best_idx][ANSWER_COL]
-
-    # Translate answer back to Indonesian if needed
-    if user_lang == "id":
-        return GoogleTranslator(source="en", target="id").translate(answer_en)
-
-    return answer_en
+    return str(data.iloc[best_idx][ANSWER_COL])
