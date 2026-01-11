@@ -2,50 +2,45 @@ import pandas as pd
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
-DATA_PATH = "apple_support.csv"
+DATA_PATH = "dataset/apple_support.csv"
 QUESTION_COL = "question"
 ANSWER_COL = "answer"
 
-translator = Translator()
-
-data = pd.read_csv(DATA_PATH)
+# Load dataset (aman walau CSV kotor)
+data = pd.read_csv(
+    DATA_PATH,
+    engine="python",
+    on_bad_lines="skip"
+)
 
 def clean_text(text):
     text = text.lower()
-    text = re.sub(r"[^a-z0-9\s]", "", text)
+    text = re.sub(r"[^a-zA-Z0-9\s]", "", text)
     return text
 
-data["clean_question"] = data[QUESTION_COL].apply(clean_text)
+data["clean_question"] = data[QUESTION_COL].astype(str).apply(clean_text)
 
 vectorizer = TfidfVectorizer()
 X = vectorizer.fit_transform(data["clean_question"])
 
 def chatbot_response(user_input):
-    user_input = user_input.strip()
+    # translate input ke English
+    translated_input = GoogleTranslator(source="auto", target="en").translate(user_input)
+    clean_input = clean_text(translated_input)
 
-    # Sapaan
-    if user_input.lower() in ["halo", "hai", "hi", "hello"]:
-        return "Halo! 👋 Saya siap membantu Anda terkait perangkat Apple."
+    vec_input = vectorizer.transform([clean_input])
+    similarities = cosine_similarity(vec_input, X)
+    best_idx = similarities.argmax()
 
-    detected = translator.detect(user_input).lang
-    user_input_en = translator.translate(
-        user_input, src=detected, dest="en"
-    ).text
+    # threshold biar gak random
+    if similarities[0][best_idx] < 0.2:
+        return GoogleTranslator(source="en", target="id").translate(
+            "Sorry, this question is not available in my dataset."
+        )
 
-    user_vec = vectorizer.transform([clean_text(user_input_en)])
-    similarity = cosine_similarity(user_vec, X)
-    best_idx = similarity.argmax()
+    answer_en = data.iloc[best_idx][ANSWER_COL]
 
-    if similarity[0][best_idx] < 0.2:
-        response_en = "Sorry, this question is not available in my dataset."
-    else:
-        response_en = data.iloc[best_idx][ANSWER_COL]
-
-    if detected != "en":
-        return translator.translate(
-            response_en, src="en", dest=detected
-        ).text
-
-    return response_en
+    # kembalikan ke bahasa user
+    return GoogleTranslator(source="en", target="auto").translate(answer_en)
