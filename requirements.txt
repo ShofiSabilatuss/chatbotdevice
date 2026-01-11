@@ -2,9 +2,8 @@ streamlit
 pandas
 scikit-learn
 nltk
-googletrans==4.0.0-rc1
-httpx==0.24.1
 deep-translator
 langdetect
+
 
 
