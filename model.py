@@ -1,66 +1,51 @@
 import pandas as pd
-import os
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from googletrans import Translator
 
-# ===== PATH =====
-BASE_DIR = os.path.dirname(__file__)
-DATA_PATH = os.path.join(BASE_DIR, "dataset", "apple_support.csv")
-
-# ===== LOAD CSV (ANTI ERROR) =====
-data = pd.read_csv(
-    DATA_PATH,
-    engine="python",
-    on_bad_lines="skip"
-)
-
-# ===== NORMALISASI NAMA KOLOM =====
-data.columns = data.columns.str.strip().str.lower()
-
-# GANTI sesuai CSV kamu
+DATA_PATH = "apple_support.csv"
 QUESTION_COL = "question"
 ANSWER_COL = "answer"
 
-if QUESTION_COL not in data.columns or ANSWER_COL not in data.columns:
-    raise ValueError(
-        f"CSV harus punya kolom '{QUESTION_COL}' dan '{ANSWER_COL}'. "
-        f"Sekarang kolomnya: {list(data.columns)}"
-    )
+translator = Translator()
 
-# ===== CLEAN TEXT =====
+data = pd.read_csv(DATA_PATH)
+
 def clean_text(text):
-    text = str(text).lower()
-    text = re.sub(r"[^a-zA-Z0-9\s]", "", text)
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9\s]", "", text)
     return text
 
 data["clean_question"] = data[QUESTION_COL].apply(clean_text)
 
-# ===== TF-IDF =====
 vectorizer = TfidfVectorizer()
 X = vectorizer.fit_transform(data["clean_question"])
 
-# ===== SAPAAN =====
-GREETINGS = {
-    "halo": "Halo! Saya siap membantu dukungan perangkat Apple 😊",
-    "hai": "Hai! Ada yang bisa saya bantu tentang perangkat Apple?",
-    "hello": "Hello! How can I help you with Apple devices?"
-}
-
-# ===== CHATBOT =====
 def chatbot_response(user_input):
     user_input = user_input.strip()
 
-    if user_input.lower() in GREETINGS:
-        return GREETINGS[user_input.lower()]
+    # Sapaan
+    if user_input.lower() in ["halo", "hai", "hi", "hello"]:
+        return "Halo! 👋 Saya siap membantu Anda terkait perangkat Apple."
 
-    clean_input = clean_text(user_input)
-    input_vec = vectorizer.transform([clean_input])
-    similarity = cosine_similarity(input_vec, X)
+    detected = translator.detect(user_input).lang
+    user_input_en = translator.translate(
+        user_input, src=detected, dest="en"
+    ).text
 
+    user_vec = vectorizer.transform([clean_text(user_input_en)])
+    similarity = cosine_similarity(user_vec, X)
     best_idx = similarity.argmax()
 
     if similarity[0][best_idx] < 0.2:
-        return "Maaf, pertanyaan tersebut belum tersedia dalam data saya."
+        response_en = "Sorry, this question is not available in my dataset."
+    else:
+        response_en = data.iloc[best_idx][ANSWER_COL]
 
-    return str(data.iloc[best_idx][ANSWER_COL])
+    if detected != "en":
+        return translator.translate(
+            response_en, src="en", dest=detected
+        ).text
+
+    return response_en
