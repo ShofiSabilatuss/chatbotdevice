@@ -1,5 +1,6 @@
 import pandas as pd
 import string
+import os
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from deep_translator import GoogleTranslator
@@ -7,13 +8,15 @@ from deep_translator import GoogleTranslator
 # =====================
 # LOAD DATASET
 # =====================
-DATA_PATH = "dataset/apple_support_clean.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(BASE_DIR, "dataset", "apple_support.csv")
+
 data = pd.read_csv(
     DATA_PATH,
     encoding="utf-8",
-    engine="python",
     on_bad_lines="skip"
 )
+
 
 QUESTION_COL = "question"
 ANSWER_COL = "answer"
