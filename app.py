@@ -1,60 +1,33 @@
 import streamlit as st
 from model import chatbot_response
 
-# =====================
-# PAGE CONFIG
-# =====================
 st.set_page_config(
     page_title="Apple Device Support Chatbot",
-    page_icon="🍎",
     layout="centered"
 )
 
-# =====================
-# HIDE STREAMLIT DEFAULT UI
-# =====================
-st.markdown("""
-<style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
+st.title("🍎 Apple Device Support Chatbot")
 
-# =====================
-# TITLE
-# =====================
-st.markdown(
-    "<h3 style='text-align:center;'>🍎 Apple Device Support Chatbot</h3>",
-    unsafe_allow_html=True
-)
-
-# =====================
-# SESSION STATE
-# =====================
+# Session state untuk chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# =====================
-# CHAT HISTORY
-# =====================
+# Tampilkan chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# =====================
-# CHAT INPUT (INI KUNCI)
-# =====================
-user_input = st.chat_input("Type your message...")
+# Input chat
+user_input = st.chat_input("Ketik pertanyaan Anda...")
 
 if user_input:
-    # user message
+    # User message
     st.session_state.messages.append({
         "role": "user",
         "content": user_input
     })
 
-    # bot message
+    # Bot response
     bot_reply = chatbot_response(user_input)
     st.session_state.messages.append({
         "role": "assistant",
@@ -63,9 +36,7 @@ if user_input:
 
     st.rerun()
 
-# =====================
-# RESET BUTTON
-# =====================
+# Reset chat
 if st.button("Reset Chat"):
     st.session_state.messages = []
     st.rerun()
