@@ -3,62 +3,54 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-DATA_PATH = "dataset/apple_support.csv"
-QUESTION_COL = "question"
-ANSWER_COL = "answer"
 
-# === Load CSV dengan aman ===
-data = pd.read_csv(
-    DATA_PATH,
-    encoding="utf-8",
-    on_bad_lines="skip"
-)
+# Load dataset 
+DATA_PATH = "apple_support.csv"
+
+data = pd.read_csv(DATA_PATH, sep=",")
 
 # Validasi kolom
-required_cols = {QUESTION_COL, ANSWER_COL}
-if not required_cols.issubset(data.columns):
-    raise ValueError(f"Kolom CSV harus ada: {data.columns}")
+if not {"question", "answer"}.issubset(data.columns):
+    raise ValueError(f"Kolom CSV tidak sesuai: {data.columns}")
 
-# === Text cleaning ===
+# Preprocessing
 def clean_text(text):
+    if not isinstance(text, str):
+        return ""
     text = text.lower()
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"[^a-z0-9\s]", "", text)
     return text.strip()
 
-data["clean_question"] = data[QUESTION_COL].apply(clean_text)
+data["clean_question"] = data["question"].apply(clean_text)
 
-# === Vectorizer ===
+# TF-IDF Model
 vectorizer = TfidfVectorizer()
 X = vectorizer.fit_transform(data["clean_question"])
 
-# === Greeting handler ===
-def greeting_response(text):
-    greetings = {
-        "halo": "Halo! Ada yang bisa saya bantu terkait perangkat Apple?",
-        "hai": "Hai! Silakan tanyakan masalah perangkat Apple kamu.",
-        "hello": "Hello! How can I help you with your Apple device?"
-    }
-    return greetings.get(text.lower())
-
-# === Chatbot function ===
-def chatbot_response(user_input):
+# Chatbot Logic
+def chatbot_response(user_input: str) -> str:
     user_input = user_input.strip()
 
-    greet = greeting_response(user_input)
-    if greet:
-        return greet
+    # Greeting (Indonesia & English)
+    if user_input.lower() in ["halo", "hai", "hi", "hello", "selamat pagi", "selamat siang", "selamat sore", "selamat malam"]:
+        return (
+            "Halo! Saya siap membantu Anda terkait perangkat Apple."
+            if user_input.lower() in ["halo", "hai"]
+            else "Hello! I can help you with Apple device support."
+        )
 
-    cleaned = clean_text(user_input)
-    user_vec = vectorizer.transform([cleaned])
+    user_clean = clean_text(user_input)
+    user_vec = vectorizer.transform([user_clean])
     similarity = cosine_similarity(user_vec, X)
+
     best_idx = similarity.argmax()
+    best_score = similarity[0][best_idx]
 
-    if similarity[0][best_idx] < 0.2:
-        return "Maaf, pertanyaan tersebut belum tersedia di data saya."
+    # Threshold (strict mode default)
+    if best_score < 0.2:
+        return "Maaf, saya tidak mengerti maksud anda."
 
-    return data.iloc[best_idx][ANSWER_COL]
-
-
+    return data.iloc[best_idx]["answer"]
 
 
 
