@@ -6,14 +6,12 @@ from deep_translator import GoogleTranslator
 
 DATA_PATH = "dataset/apple_support.csv"
 
-# Load dataset (aman walau CSV kotor)
 data = pd.read_csv(
     DATA_PATH,
-    sep=";",
+    sep=None,
     engine="python",
     on_bad_lines="skip"
 )
-
 data.columns = [c.strip().lower() for c in data.columns]
 
 QUESTION_COL = "question"
@@ -53,6 +51,7 @@ def chatbot_response(user_input):
 
     # kembalikan ke bahasa user
     return GoogleTranslator(source="en", target="auto").translate(answer_en)
+
 
 
 
